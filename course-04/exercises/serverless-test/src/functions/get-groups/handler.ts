@@ -1,4 +1,4 @@
-'use strict'
+import { formatJSONResponse } from '@libs/api-gateway';
 
 const AWS = require('aws-sdk')
 
@@ -6,23 +6,13 @@ const docClient = new AWS.DynamoDB.DocumentClient()
 
 const groupsTable = process.env.GROUPS_TABLE
 
-exports.handler = async (event) => {
+const getGroups = async (event) => {
   console.log('Processing event: ', event)
 
-  // TODO: Read and parse "limit" and "nextKey" parameters from query parameters
-  // let nextKey // Next key to continue scan operation if necessary
-  // let limit // Maximum number of elements to return
-
-  // HINT: You might find the following method useful to get an incoming parameter value
-  // getQueryParameter(event, 'param')
-
-  // TODO: Return 400 error if parameters are invalid
-  
-  // Scan operation parameters
   const scanParams = {
     TableName: groupsTable,
     Limit: getQueryParameter(event, "limit"),
-    ExclusiveStartKey: decode(getQueryParameter(event, "nextKey"))
+    ExclusiveStartKey: decodeKey(getQueryParameter(event, "nextKey"))
   }
 
   console.log("Next key: " + scanParams.ExclusiveStartKey);
@@ -45,7 +35,7 @@ exports.handler = async (event) => {
     const result = await docClient.scan(scanParams).promise()
 
     items.push(result.Items);
-    scanParams.ExclusiveStartKey = result.nextKey;
+    scanParams.ExclusiveStartKey = result.LastEvaluatedKey;
     
     if(scanParams.Limit) {
       scanParams.Limit -= result.Items.size;
@@ -66,16 +56,8 @@ exports.handler = async (event) => {
       nextKey: encodeNextKey(scanParams.ExclusiveStartKey)
     })
   }
-}
+};
 
-/**
- * Get a query parameter or return "undefined"
- *
- * @param {Object} event HTTP event passed to a Lambda function
- * @param {string} name a name of a query parameter to return
- *
- * @returns {string} a value of a query parameter value or "undefined" if a parameter is not defined
- */
 function getQueryParameter(event, name) {
   const queryParams = event.queryStringParameters
   if (!queryParams) {
@@ -117,3 +99,6 @@ function badRequest(msg) {
     })
   }
 }
+
+
+export const main = getGroups;
